@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 import aiohttp
 import hashlib
 from datetime import datetime, timedelta
+import random
 
 from models import AssociationResult, Generation
 
@@ -176,6 +177,10 @@ class Word2VecModel:
             logger.error(f"類似語取得エラー - {word}: {e}")
             return []
     
+    def _clean_word(self, word: str) -> str:
+        """単語から括弧を除去"""
+        return word.replace('[', '').replace(']', '')
+    
     def _get_similar_words_sync(
         self, 
         word: str, 
@@ -184,17 +189,21 @@ class Word2VecModel:
     ) -> List[Tuple[str, float]]:
         """同期的に類似語を取得"""
         try:
-            # Gensimのmost_similarを使用
-            similar = self.model.most_similar(word, topn=topn * 2)  # 余裕を持って取得
+            # より多くの候補を取得してランダム性を確保
+            candidate_multiplier = 4  # 指定数の4倍の候補を取得
+            similar = self.model.most_similar(word, topn=topn * candidate_multiplier)
             
-            # 閾値でフィルタリング
+            # 閾値でフィルタリングと括弧除去
             filtered = [
-                (w, s) for w, s in similar 
+                (self._clean_word(w), s) for w, s in similar 
                 if s >= threshold
             ]
             
-            # 指定数まで制限
-            return filtered[:topn]
+            # フィルタリング後の候補から指定数をランダムに選択
+            if len(filtered) <= topn:
+                return filtered
+            else:
+                return random.sample(filtered, topn)
             
         except Exception as e:
             logger.error(f"類似語計算エラー: {e}")

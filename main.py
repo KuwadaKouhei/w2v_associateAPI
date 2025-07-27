@@ -261,9 +261,21 @@ async def root():
     }
 
 
+# ヘルスチェックエンドポイント（Heroku用）
+@app.get("/api/v1/health", include_in_schema=False)
+async def health_check():
+    """ヘルスチェックエンドポイント"""
+    if not w2v_model or not w2v_model.is_loaded():
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "message": "モデルが読み込まれていません"}
+        )
+    return {"status": "healthy", "message": "API is running"}
+
+
 # 開発サーバー起動
 if __name__ == "__main__":
-    port = int(os.getenv("API_PORT", 8080))
+    port = int(os.getenv("PORT", os.getenv("API_PORT", 8080)))  # Heroku用PORTを優先
     host = os.getenv("API_HOST", "0.0.0.0")
     
     logger.info(f"🌐 サーバー起動: http://{host}:{port}")
@@ -273,6 +285,6 @@ if __name__ == "__main__":
         "main:app",
         host=host,
         port=port,
-        reload=True,  # 開発モード
+        reload=False,  # 本番モード
         log_level="info"
     )
