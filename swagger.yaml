@@ -1,0 +1,605 @@
+openapi: 3.0.3
+info:
+  title: Word2Vec Association API  
+  description: |
+    Word2Vecベクトルモデルを使用して、入力されたキーワードから連想される言葉を生成するAPIです。
+    
+    ## 主な機能
+    - **連想語生成**: 指定したキーワードから複数世代の連想語を生成
+    - **モデル情報取得**: 使用しているWord2Vecモデルの詳細情報を取得
+    - **高性能**: 1,015,474語彙の大規模モデルを使用
+    - **多世代対応**: 最大5世代までの連想語生成が可能
+    
+    ## モデル仕様
+    - **語彙数**: 1,015,474語
+    - **ベクトル次元**: 200次元  
+    - **モデルタイプ**: Word2Vec (Skip-gram)
+    - **言語**: 日本語
+    
+    ## 技術仕様
+    - **フレームワーク**: FastAPI
+    - **デプロイ環境**: AWS ECS Fargate
+    - **コンテナ**: Docker
+    - **モデル配信**: Amazon S3
+    
+  version: "1.0.0"
+  contact:
+    name: Word2Vec API サポート
+    url: https://github.com/KuwadaKouhei/w2v_associateAPI
+    email: support@example.com
+  license:
+    name: MIT License
+    url: https://opensource.org/licenses/MIT
+    
+servers:
+  - url: http://35.74.249.60:8080
+    description: 本番環境 (AWS ECS Fargate)
+  - url: http://localhost:8080
+    description: ローカル開発環境
+
+tags:
+  - name: Association
+    description: 連想語生成関連のエンドポイント
+  - name: Model
+    description: モデル情報関連のエンドポイント  
+  - name: Health
+    description: ヘルスチェック関連のエンドポイント
+
+paths:
+  /:
+    get:
+      tags:
+        - Health
+      summary: ルートエンドポイント
+      description: APIの基本情報とヘルスチェックを行います
+      operationId: getRoot
+      responses:
+        '200':
+          description: API基本情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RootResponse'
+              example:
+                message: "Word Association API"
+                version: "1.0.0"
+                docs: "/docs"
+                openapi: "/openapi.json"
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/associate:
+    post:
+      tags:
+        - Association
+      summary: 連想語生成
+      description: |
+        指定されたキーワードから連想語を生成します。
+        
+        ## 動作仕様
+        1. 入力キーワードをWord2Vecモデルで検索
+        2. 類似度の高い単語を抽出  
+        3. 指定された世代数まで再帰的に連想語を生成
+        4. 各世代の結果を類似度順でソート
+        
+        ## パラメータ詳細
+        - **keyword**: 連想語を生成したいキーワード（必須）
+        - **generation**: 連想の世代数（2-5、推奨: 2-3）
+        - **max_results**: 各世代の最大結果数（1-50、デフォルト: 10）
+        - **threshold**: 類似度の閾値（0.0-1.0、デフォルト: 0.5）
+        
+      operationId: generateAssociation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssociationRequest'
+            examples:
+              basic:
+                summary: 基本的な使用例
+                value:
+                  keyword: "東京"
+                  generation: 2
+              advanced:
+                summary: 詳細設定例
+                value:
+                  keyword: "技術"
+                  generation: 3
+                  max_results: 15
+                  threshold: 0.6
+              simple:
+                summary: シンプル例
+                value:
+                  keyword: "犬"
+                  generation: 2
+                  max_results: 5
+      responses:
+        '200':
+          description: 連想語生成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssociationResponse'
+              examples:
+                success:
+                  summary: 成功レスポンス例
+                  value:
+                    status: "success"
+                    keyword: "東京"
+                    generation: 2
+                    generations:
+                      - generation_number: 1
+                        parent_word: "東京"
+                        results:
+                          - word: "大阪"
+                            similarity: 0.8234
+                          - word: "横浜"
+                            similarity: 0.7891
+                          - word: "京都"
+                            similarity: 0.7654
+                        count: 3
+                      - generation_number: 2
+                        parent_word: "大阪"
+                        results:
+                          - word: "関西"
+                            similarity: 0.7432
+                          - word: "神戸"
+                            similarity: 0.7123
+                        count: 2
+                    total_count: 5
+        '400':
+          description: リクエストパラメータエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                keyword_required:
+                  summary: キーワード未指定
+                  value:
+                    status: "error"
+                    error_code: "KEYWORD_REQUIRED"
+                    message: "キーワードは必須です"
+                    details: "keyword フィールドが空または未指定です"
+                invalid_parameter:
+                  summary: パラメータ不正
+                  value:
+                    status: "error"
+                    error_code: "INVALID_PARAMETER"
+                    message: "パラメータが不正です"
+                    details: "generation は 2-5 の範囲で指定してください"
+        '404':
+          description: キーワードが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                error_code: "KEYWORD_NOT_FOUND"
+                message: "指定されたキーワードがモデルに存在しません"
+                details: "キーワード 'xxxxxxx' はWord2Vecモデルの語彙に含まれていません"
+        '429':
+          description: レート制限エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                error_code: "RATE_LIMIT_EXCEEDED"
+                message: "リクエスト制限を超過しました"
+                details: "1分間に最大100リクエストまで可能です"
+        '500':
+          description: サーバー内部エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                error_code: "INTERNAL_ERROR"
+                message: "内部サーバーエラーが発生しました"
+                details: "モデル処理中にエラーが発生しました"
+
+  /api/v1/model/info:
+    get:
+      tags:
+        - Model
+      summary: モデル情報取得
+      description: |
+        現在使用しているWord2Vecモデルの詳細情報を取得します。
+        
+        ## 取得可能な情報
+        - モデルの語彙数
+        - ベクトル次元数
+        - モデルタイプ
+        - 読み込み状態
+        - モデルファイル情報
+        
+      operationId: getModelInfo
+      responses:
+        '200':
+          description: モデル情報取得成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelInfoResponse'
+              example:
+                status: "success"
+                model_info:
+                  vocabulary_size: 1015474
+                  vector_dimension: 200
+                  model_type: "word2vec"
+                  is_loaded: true
+                  model_file_size: "2.1 GB"
+                  load_time: "45.2 seconds"
+                  model_source: "S3 Bucket"
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: "error"
+                error_code: "MODEL_LOAD_ERROR"
+                message: "モデルが正常に読み込まれていません"
+                details: "モデルファイルの読み込みに失敗しました"
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: ヘルスチェック
+      description: APIサーバーとモデルの健全性をチェックします
+      operationId: healthCheck
+      responses:
+        '200':
+          description: ヘルスチェック成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "healthy"
+                timestamp: "2025-07-27T14:30:00Z"
+                model_status: "loaded"
+                memory_usage: "85%"
+                uptime: "2h 15m 30s"
+        '503':
+          description: サービス利用不可
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "unhealthy"
+                timestamp: "2025-07-27T14:30:00Z"
+                model_status: "loading"
+                memory_usage: "95%"
+                uptime: "5m 12s"
+
+components:
+  schemas:
+    RootResponse:
+      type: object
+      description: ルートエンドポイントのレスポンス
+      properties:
+        message:
+          type: string
+          description: API名
+          example: "Word Association API"
+        version:
+          type: string
+          description: APIバージョン
+          example: "1.0.0"
+        docs:
+          type: string
+          description: ドキュメントURL
+          example: "/docs"
+        openapi:
+          type: string
+          description: OpenAPI仕様URL
+          example: "/openapi.json"
+      required:
+        - message
+        - version
+        - docs
+        - openapi
+
+    AssociationRequest:
+      type: object
+      description: 連想語生成リクエスト
+      properties:
+        keyword:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: |
+            連想語を生成したいキーワード
+            
+            ## 注意事項
+            - ひらがな、カタカナ、漢字、英数字に対応
+            - 記号や特殊文字は避けてください
+            - モデルの語彙に含まれない単語の場合はエラーになります
+          example: "東京"
+        generation:
+          type: integer
+          minimum: 2
+          maximum: 5
+          description: |
+            連想の世代数
+            
+            ## 推奨値
+            - **2世代**: 基本的な連想語（推奨）
+            - **3世代**: より幅広い連想語
+            - **4-5世代**: 深い連想語（処理時間長）
+          example: 2
+        max_results:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 10
+          description: |
+            各世代の最大結果数
+            
+            ## パフォーマンス考慮
+            - 1-10: 高速（推奨）
+            - 11-30: 標準
+            - 31-50: 低速（大量データ）
+          example: 10
+        threshold:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          default: 0.5
+          description: |
+            類似度の閾値
+            
+            ## 設定指針
+            - **0.3-0.5**: 幅広い連想語
+            - **0.5-0.7**: バランス型（推奨）
+            - **0.7-1.0**: 高類似度のみ
+          example: 0.6
+      required:
+        - keyword
+        - generation
+      additionalProperties: false
+
+    AssociationResponse:
+      type: object
+      description: 連想語生成レスポンス
+      properties:
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        keyword:
+          type: string
+          description: 入力されたキーワード
+          example: "東京"
+        generation:
+          type: integer
+          description: 指定された世代数
+          example: 2
+        generations:
+          type: array
+          description: 各世代の連想語結果
+          items:
+            $ref: '#/components/schemas/GenerationResult'
+        total_count:
+          type: integer
+          description: 全世代の総結果数
+          example: 15
+      required:
+        - status
+        - keyword
+        - generation
+        - generations
+        - total_count
+
+    GenerationResult:
+      type: object
+      description: 世代別の連想語結果
+      properties:
+        generation_number:
+          type: integer
+          description: 世代番号
+          example: 1
+        parent_word:
+          type: string
+          description: この世代の親となるキーワード
+          example: "東京"
+        results:
+          type: array
+          description: この世代の連想語リスト
+          items:
+            $ref: '#/components/schemas/WordResult'
+        count:
+          type: integer
+          description: この世代の結果数
+          example: 8
+      required:
+        - generation_number
+        - parent_word
+        - results
+        - count
+
+    WordResult:
+      type: object
+      description: 個別の連想語結果
+      properties:
+        word:
+          type: string
+          description: 連想語
+          example: "大阪"
+        similarity:
+          type: number
+          format: float
+          description: |
+            類似度スコア（0.0-1.0）
+            
+            ## スコア解釈
+            - **0.8-1.0**: 非常に高い類似度
+            - **0.6-0.8**: 高い類似度
+            - **0.4-0.6**: 中程度の類似度
+            - **0.0-0.4**: 低い類似度
+          example: 0.7234
+      required:
+        - word
+        - similarity
+
+    ModelInfoResponse:
+      type: object
+      description: モデル情報レスポンス
+      properties:
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        model_info:
+          $ref: '#/components/schemas/ModelInfo'
+      required:
+        - status
+        - model_info
+
+    ModelInfo:
+      type: object
+      description: Word2Vecモデルの詳細情報
+      properties:
+        vocabulary_size:
+          type: integer
+          description: モデルの語彙数
+          example: 1015474
+        vector_dimension:
+          type: integer
+          description: ベクトルの次元数
+          example: 200
+        model_type:
+          type: string
+          description: モデルの種類
+          example: "word2vec"
+        is_loaded:
+          type: boolean
+          description: モデルが読み込まれているかどうか
+          example: true
+        model_file_size:
+          type: string
+          description: モデルファイルのサイズ
+          example: "2.1 GB"
+        load_time:
+          type: string
+          description: モデル読み込み時間
+          example: "45.2 seconds"
+        model_source:
+          type: string
+          description: モデルの取得元
+          example: "S3 Bucket"
+      required:
+        - vocabulary_size
+        - vector_dimension
+        - model_type
+        - is_loaded
+
+    HealthResponse:
+      type: object
+      description: ヘルスチェックレスポンス
+      properties:
+        status:
+          type: string
+          enum: ["healthy", "unhealthy"]
+          description: サービスの健全性
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          description: チェック実行時刻
+          example: "2025-07-27T14:30:00Z"
+        model_status:
+          type: string
+          enum: ["loaded", "loading", "error", "not_loaded"]
+          description: モデルの状態
+          example: "loaded"
+        memory_usage:
+          type: string
+          description: メモリ使用率
+          example: "85%"
+        uptime:
+          type: string
+          description: 稼働時間
+          example: "2h 15m 30s"
+      required:
+        - status
+        - timestamp
+        - model_status
+
+    ErrorResponse:
+      type: object
+      description: エラーレスポンス
+      properties:
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        error_code:
+          $ref: '#/components/schemas/ErrorCodeEnum'
+        message:
+          type: string
+          description: エラーメッセージ
+          example: "キーワードが見つかりません"
+        details:
+          type: string
+          description: エラーの詳細情報
+          example: "指定されたキーワード 'xxxxx' はモデルの語彙に含まれていません"
+        timestamp:
+          type: string
+          format: date-time
+          description: エラー発生時刻
+          example: "2025-07-27T14:30:00Z"
+      required:
+        - status
+        - error_code
+        - message
+
+    StatusEnum:
+      type: string
+      enum: ["success", "error"]
+      description: レスポンスステータス
+
+    ErrorCodeEnum:
+      type: string
+      enum: 
+        - "KEYWORD_NOT_FOUND"
+        - "INVALID_PARAMETER" 
+        - "KEYWORD_REQUIRED"
+        - "INTERNAL_ERROR"
+        - "MODEL_LOAD_ERROR"
+        - "RATE_LIMIT_EXCEEDED"
+      description: |
+        エラーコード定義
+        
+        - **KEYWORD_NOT_FOUND**: キーワードがモデルに存在しない
+        - **INVALID_PARAMETER**: リクエストパラメータが不正
+        - **KEYWORD_REQUIRED**: キーワードが未指定
+        - **INTERNAL_ERROR**: サーバー内部エラー
+        - **MODEL_LOAD_ERROR**: モデル読み込みエラー
+        - **RATE_LIMIT_EXCEEDED**: リクエスト制限超過
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API キー認証（将来実装予定）
+        
+        現在は認証不要でご利用いただけます。
+
+# 将来の機能拡張用（現在は無効）
+# security:
+#   - ApiKeyAuth: []
+
+externalDocs:
+  description: GitHub リポジトリ
+  url: https://github.com/KuwadaKouhei/w2v_associateAPI
