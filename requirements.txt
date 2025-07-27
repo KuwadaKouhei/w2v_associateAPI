@@ -3,3 +3,6 @@ uvicorn==0.24.0
 pydantic==2.5.0
 aiohttp==3.9.1
 python-multipart==0.0.6
+
+# 段階的追加: まずnumpyから
+numpy==1.24.3
