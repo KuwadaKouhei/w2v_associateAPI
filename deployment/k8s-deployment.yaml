@@ -1,0 +1,180 @@
+# Kubernetes Deployment for Word2Vec Association API
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: w2v-api
+  labels:
+    app: w2v-api
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: w2v-api
+  template:
+    metadata:
+      labels:
+        app: w2v-api
+        version: v1
+    spec:
+      containers:
+      - name: w2v-api
+        image: your-registry/w2v-association-api:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: MODEL_PATH
+          value: "/app/models"
+        - name: API_PORT
+          value: "8080"
+        - name: WORKERS
+          value: "2"
+        - name: LOG_LEVEL
+          value: "info"
+        # Persistent storage for model caching
+        volumeMounts:
+        - name: model-cache
+          mountPath: /app/models
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "1000m"
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        # Startup probe (for slow model loading)
+        startupProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30  # 5 minutes max startup time
+      volumes:
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: model-cache-pvc
+      # Init container for model pre-download (optional)
+      initContainers:
+      - name: model-downloader
+        image: your-registry/w2v-association-api:latest
+        command: ["python", "-c"]
+        args:
+        - |
+          import asyncio
+          from deployment.model_manager import ModelManager
+          async def main():
+              manager = ModelManager()
+              await manager.ensure_models_available()
+          asyncio.run(main())
+        volumeMounts:
+        - name: model-cache
+          mountPath: /app/models
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+---
+# Persistent Volume Claim for model caching
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-pvc
+spec:
+  accessModes:
+    - ReadWriteMany  # Multiple pods can read/write
+  resources:
+    requests:
+      storage: 5Gi  # Enough for models + cache
+  storageClassName: fast-ssd  # Use SSD for better performance
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: w2v-api-service
+spec:
+  selector:
+    app: w2v-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+
+---
+# Horizontal Pod Autoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: w2v-api-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: w2v-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# ConfigMap for model configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-config
+data:
+  model_config.json: |
+    {
+      "models": {
+        "entity_vector": {
+          "files": {
+            "model.txt": {
+              "url": "https://my-w2v-models-2024.s3.ap-northeast-1.amazonaws.com/models/entity_vector/entity_vector.model.txt",
+              "sha256": "actual_hash_here",
+              "size": 1861000000,
+              "required": true
+            }
+          }
+        }
+      },
+      "cache": {
+        "ttl_hours": 168,
+        "verify_on_startup": true
+      }
+    }
