@@ -26,6 +26,10 @@ from models import (
 # 環境に応じてモデルを選択
 model_type = os.getenv("MODEL_TYPE", "light")  # light, medium, large, full
 
+# ログ設定
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 logger.info(f"🎯 モデルタイプ: {model_type}")
 
 # 遅延インポートでエラーを回避
@@ -63,10 +67,9 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger(__name__)
 
 # グローバル変数
-w2v_model: Word2VecModel = None
+w2v_model = None
 
 
 @asynccontextmanager
