@@ -1,0 +1,22 @@
+# Google Cloud ignore file
+.git/
+.gitignore
+README.md
+.vscode/
+.idea/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+models/
+deployment/
+docker-compose.yml
+vercel.json
+railway.toml
+nixpacks.toml
+*.md
+requirements-*.txt
+!requirements.txt

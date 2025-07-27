@@ -312,11 +312,13 @@ async def health_check():
 
 # 開発サーバー起動
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", os.getenv("API_PORT", 8080)))  # Heroku用PORTを優先
+    # Cloud Run, Heroku, その他のプラットフォーム対応
+    port = int(os.getenv("PORT", os.getenv("API_PORT", 8080)))
     host = os.getenv("API_HOST", "0.0.0.0")
     
     logger.info(f"🌐 サーバー起動: http://{host}:{port}")
     logger.info(f"📚 ドキュメント: http://{host}:{port}/docs")
+    logger.info(f"🎯 モデルタイプ: {os.getenv('MODEL_TYPE', 'light')}")
     
     uvicorn.run(
         "main:app",
