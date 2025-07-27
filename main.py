@@ -22,7 +22,12 @@ from models import (
     ErrorCodeEnum,
     StatusEnum
 )
-from w2v_model import Word2VecModel
+
+# 環境に応じてモデルを選択
+if os.getenv("USE_LIGHT_MODEL") == "true":
+    from w2v_model_light import Word2VecModelLight as Word2VecModel
+else:
+    from w2v_model import Word2VecModel
 
 # ログ設定
 logging.basicConfig(
