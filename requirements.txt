@@ -4,5 +4,6 @@ pydantic==2.5.0
 aiohttp==3.9.1
 python-multipart==0.0.6
 
-# 段階的追加: まずnumpyから
+# 段階的追加: numpy + scipy
 numpy==1.24.3
+scipy==1.11.4
