@@ -23,11 +23,8 @@ from models import (
     StatusEnum
 )
 
-# 環境に応じてモデルを選択
-if os.getenv("USE_LIGHT_MODEL") == "true":
-    from w2v_model_light import Word2VecModelLight as Word2VecModel
-else:
-    from w2v_model import Word2VecModel
+# Railway用は軽量版を使用
+from w2v_model_light import Word2VecModelLight as Word2VecModel
 
 # ログ設定
 logging.basicConfig(
