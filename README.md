@@ -8,15 +8,33 @@ Word2Vecベクトルモデルを使用して、入力されたキーワードか
 - **ベクトル次元**: 200次元
 - **モデルタイプ**: Word2Vec
 - **S3自動ダウンロード**: サーバー起動時に自動でモデルを取得
+- **デプロイ環境**: AWS ECS Fargate
+
+## 🚀 クイックスタート
+
+### 1. HTMLテストページでAPIをテスト
+```powershell
+# ブラウザでapi-test.htmlを開く
+Start-Process api-test.html
+```
+
+### 2. PowerShellでAPI健全性をチェック
+```powershell
+.\test-api-health.ps1
+```
+
+### 3. 現在のエンドポイント確認
+```powershell
+.\get-endpoint.ps1
+```
 
 ## API仕様
-
-API仕様は `swagger.yaml` をご確認ください。Swagger UIやPostmanで直接インポート可能です。
 
 ### 主要エンドポイント
 
 - `POST /api/v1/associate` - 連想語取得
 - `GET /api/v1/model/info` - モデル情報取得
+- `GET /docs` - Swagger UI（APIドキュメント）
 
 ## クイックスタート
 

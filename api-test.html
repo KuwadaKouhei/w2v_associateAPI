@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word2Vec API テスト</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .api-status {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-left: 5px solid #28a745;
+        }
+        
+        .api-endpoint {
+            font-family: 'Courier New', monospace;
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        
+        .test-section {
+            background: #ffffff;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 25px;
+            transition: all 0.3s ease;
+        }
+        
+        .test-section:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+        }
+        
+        .test-section h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .icon {
+            font-size: 1.2em;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        
+        .word-result {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            margin: 3px;
+            border-radius: 15px;
+            font-size: 14px;
+        }
+        
+        .similarity-score {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            color: #6c757d;
+        }
+        
+        .generation-group {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .generation-title {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Word2Vec API テスト</h1>
+            <p>Word2Vec連想語APIの動作を確認できます</p>
+        </div>
+        
+        <div class="api-status">
+            <h3>📡 API接続状況</h3>
+            <p>エンドポイント: <span id="endpoint-url">取得中...</span></p>
+            <div class="api-endpoint" id="current-endpoint"></div>
+            <button class="btn" onclick="checkApiStatus()">接続テスト</button>
+            <div id="status-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3><span class="icon">🔍</span>モデル情報取得</h3>
+            <p>Word2Vecモデルの基本情報を取得します</p>
+            <button class="btn" onclick="getModelInfo()" id="model-btn">モデル情報取得</button>
+            <div id="model-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3><span class="icon">💭</span>連想語生成</h3>
+            <p>指定したキーワードから連想語を生成します</p>
+            
+            <div class="form-group">
+                <label for="keyword">キーワード:</label>
+                <input type="text" id="keyword" value="東京" placeholder="連想語を生成したいキーワードを入力">
+            </div>
+            
+            <div class="form-group">
+                <label for="generation">世代数:</label>
+                <select id="generation">
+                    <option value="1">1世代</option>
+                    <option value="2" selected>2世代</option>
+                    <option value="3">3世代</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="max-results">最大結果数:</label>
+                <input type="number" id="max-results" value="10" min="1" max="50">
+            </div>
+            
+            <button class="btn" onclick="generateAssociations()" id="assoc-btn">連想語生成</button>
+            <button class="btn" onclick="clearResults()">結果クリア</button>
+            
+            <div id="association-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3><span class="icon">🎯</span>クイックテスト</h3>
+            <p>よく使用されるキーワードで素早くテストできます</p>
+            
+            <button class="btn" onclick="quickTest('日本')">日本</button>
+            <button class="btn" onclick="quickTest('技術')">技術</button>
+            <button class="btn" onclick="quickTest('音楽')">音楽</button>
+            <button class="btn" onclick="quickTest('自然')">自然</button>
+            <button class="btn" onclick="quickTest('スポーツ')">スポーツ</button>
+            
+            <div id="quick-result"></div>
+        </div>
+        
+        <div class="footer">
+            <p>Word2Vec Association API - AWS ECS Fargate で稼働中</p>
+            <p>APIドキュメント: <a href="#" id="swagger-link" target="_blank">Swagger UI</a></p>
+        </div>
+    </div>
+
+    <script>
+        let currentEndpoint = '';
+
+        // ページ読み込み時にエンドポイントを取得
+        window.onload = function() {
+            getEndpoint();
+        };
+
+        async function getEndpoint() {
+            try {
+                // PowerShellスクリプトから取得したエンドポイントを使用
+                // 実際の運用では、このURLを動的に取得する必要があります
+                currentEndpoint = 'http://35.74.249.60:8080';  // 現在のエンドポイント
+                
+                document.getElementById('endpoint-url').textContent = currentEndpoint;
+                document.getElementById('current-endpoint').textContent = currentEndpoint;
+                document.getElementById('swagger-link').href = currentEndpoint + '/docs';
+                
+                // 自動で接続テスト
+                checkApiStatus();
+            } catch (error) {
+                document.getElementById('endpoint-url').textContent = '取得失敗';
+                showResult('status-result', 'エンドポイント取得エラー: ' + error.message, 'error');
+            }
+        }
+
+        async function checkApiStatus() {
+            const resultDiv = document.getElementById('status-result');
+            showLoading(resultDiv);
+            
+            try {
+                const response = await fetch(currentEndpoint + '/');
+                const data = await response.json();
+                
+                showResult('status-result', 
+                    `✅ API接続成功\n` +
+                    `API名: ${data.message}\n` +
+                    `バージョン: ${data.version}\n` +
+                    `応答時間: ${response.headers.get('date')}`, 
+                    'success'
+                );
+            } catch (error) {
+                showResult('status-result', 
+                    `❌ API接続失敗\n` +
+                    `エラー: ${error.message}\n` +
+                    `エンドポイント: ${currentEndpoint}`, 
+                    'error'
+                );
+            }
+        }
+
+        async function getModelInfo() {
+            const btn = document.getElementById('model-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>取得中...';
+            
+            try {
+                const response = await fetch(currentEndpoint + '/api/v1/model/info');
+                const data = await response.json();
+                
+                showResult('model-result',
+                    `✅ モデル情報取得成功\n` +
+                    `語彙数: ${data.model_info.vocabulary_size.toLocaleString()}\n` +
+                    `ベクトル次元: ${data.model_info.vector_dimension}\n` +
+                    `モデルタイプ: ${data.model_info.model_type}`,
+                    'success'
+                );
+            } catch (error) {
+                showResult('model-result', 
+                    `❌ モデル情報取得失敗\nエラー: ${error.message}`, 
+                    'error'
+                );
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'モデル情報取得';
+            }
+        }
+
+        async function generateAssociations() {
+            const keyword = document.getElementById('keyword').value.trim();
+            const generation = parseInt(document.getElementById('generation').value);
+            const maxResults = parseInt(document.getElementById('max-results').value);
+            
+            if (!keyword) {
+                showResult('association-result', '❌ キーワードを入力してください', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('assoc-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>生成中...';
+            
+            try {
+                const response = await fetch(currentEndpoint + '/api/v1/associate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        keyword: keyword,
+                        generation: generation,
+                        max_results: maxResults
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displayAssociationResults(data);
+                
+            } catch (error) {
+                showResult('association-result', 
+                    `❌ 連想語生成失敗\nエラー: ${error.message}`, 
+                    'error'
+                );
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '連想語生成';
+            }
+        }
+
+        function displayAssociationResults(data) {
+            const resultDiv = document.getElementById('association-result');
+            
+            let html = `<div class="result success">`;
+            html += `✅ 連想語生成成功\n`;
+            html += `キーワード: ${data.keyword}\n`;
+            html += `世代数: ${data.generation}\n`;
+            html += `総結果数: ${data.total_count}\n\n`;
+            
+            data.generations.forEach((gen, index) => {
+                html += `<div class="generation-group">`;
+                html += `<div class="generation-title">第${gen.generation_number}世代 (${gen.parent_word} から)</div>`;
+                
+                gen.results.forEach(result => {
+                    html += `<span class="word-result">`;
+                    html += `${result.word} `;
+                    html += `<span class="similarity-score">(${result.similarity.toFixed(3)})</span>`;
+                    html += `</span>`;
+                });
+                
+                html += `</div>`;
+            });
+            
+            html += `</div>`;
+            resultDiv.innerHTML = html;
+        }
+
+        async function quickTest(keyword) {
+            document.getElementById('keyword').value = keyword;
+            document.getElementById('generation').value = '2';
+            document.getElementById('max-results').value = '8';
+            
+            // 結果を別の場所に表示
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>';
+            
+            try {
+                const response = await fetch(currentEndpoint + '/api/v1/associate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        keyword: keyword,
+                        generation: 2,
+                        max_results: 8
+                    })
+                });
+                
+                const data = await response.json();
+                
+                let resultText = `📍 ${keyword} の連想語:\n`;
+                if (data.generations && data.generations.length > 0) {
+                    data.generations[0].results.forEach(result => {
+                        resultText += `• ${result.word} (${result.similarity.toFixed(3)})\n`;
+                    });
+                }
+                
+                showResult('quick-result', resultText, 'info');
+                
+            } catch (error) {
+                showResult('quick-result', 
+                    `❌ ${keyword} のテスト失敗: ${error.message}`, 
+                    'error'
+                );
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = keyword;
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('association-result').innerHTML = '';
+            document.getElementById('quick-result').innerHTML = '';
+        }
+
+        function showResult(elementId, text, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${type}">${text}</div>`;
+        }
+
+        function showLoading(element) {
+            element.innerHTML = '<div class="result info"><span class="loading"></span>処理中...</div>';
+        }
+    </script>
+</body>
+</html>
+
+
