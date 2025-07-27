@@ -24,12 +24,14 @@ from models import (
 )
 
 # 環境に応じてモデルを選択
-model_type = os.getenv("MODEL_TYPE", "light")  # light, medium, full
+model_type = os.getenv("MODEL_TYPE", "light")  # light, medium, large, full
 
 if model_type == "light":
     from w2v_model_light import Word2VecModelLight as Word2VecModel
 elif model_type == "medium":
     from w2v_model_medium import Word2VecModelMedium as Word2VecModel
+elif model_type == "large":
+    from w2v_model_large import Word2VecModelLarge as Word2VecModel
 else:  # full
     from w2v_model import Word2VecModel
 
