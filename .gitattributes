@@ -1,5 +1,6 @@
 *.bin filter=lfs diff=lfs merge=lfs -text
 models/*.txt filter=lfs diff=lfs merge=lfs -text
-!requirements*.txt
-!vercel.json
-!*.md
+requirements.txt -filter -diff -merge text
+requirements*.txt -filter -diff -merge text
+vercel.json -filter -diff -merge text
+*.md -filter -diff -merge text
