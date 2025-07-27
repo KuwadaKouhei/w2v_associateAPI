@@ -28,18 +28,35 @@ model_type = os.getenv("MODEL_TYPE", "light")  # light, medium, large, full
 
 logger.info(f"🎯 モデルタイプ: {model_type}")
 
-if model_type == "light":
-    logger.info("📦 軽量版モデルを読み込み中...")
-    from w2v_model_light import Word2VecModelLight as Word2VecModel
-elif model_type == "medium":
-    logger.info("📦 中程度モデルを読み込み中...")
-    from w2v_model_medium import Word2VecModelMedium as Word2VecModel
-elif model_type == "large":
-    logger.info("📦 大規模モデルを読み込み中...")
-    from w2v_model_large import Word2VecModelLarge as Word2VecModel
-else:  # full
-    logger.info("📦 完全版Word2Vecモデルを読み込み中...")
-    from w2v_model import Word2VecModel
+# 遅延インポートでエラーを回避
+Word2VecModel = None
+
+def get_model_class():
+    global Word2VecModel
+    if Word2VecModel is None:
+        try:
+            if model_type == "light":
+                logger.info("📦 軽量版モデルを読み込み中...")
+                from w2v_model_light import Word2VecModelLight as Word2VecModel
+            elif model_type == "medium":
+                logger.info("📦 中程度モデルを読み込み中...")
+                from w2v_model_medium import Word2VecModelMedium as Word2VecModel
+            elif model_type == "large":
+                logger.info("📦 大規模モデルを読み込み中...")
+                from w2v_model_large import Word2VecModelLarge as Word2VecModel
+            else:  # full
+                logger.info("📦 完全版Word2Vecモデルを読み込み中...")
+                try:
+                    from w2v_model import Word2VecModel
+                except ImportError as e:
+                    logger.error(f"❌ 完全版モデルの読み込みに失敗: {e}")
+                    logger.info("📦 大規模モデルにフォールバック...")
+                    from w2v_model_large import Word2VecModelLarge as Word2VecModel
+        except ImportError as e:
+            logger.error(f"❌ モデル読み込みエラー: {e}")
+            logger.info("📦 軽量版モデルにフォールバック...")
+            from w2v_model_light import Word2VecModelLight as Word2VecModel
+    return Word2VecModel
 
 # ログ設定
 logging.basicConfig(
@@ -61,8 +78,11 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Word Association API 起動中...")
     
     try:
+        # モデルクラスを取得
+        ModelClass = get_model_class()
+        
         # モデル初期化
-        w2v_model = Word2VecModel()
+        w2v_model = ModelClass()
         
         # モデル読み込み
         logger.info("📁 モデルファイルの準備を開始...")
